@@ -23,7 +23,7 @@ import theano.tensor as T
 # (X_t, X_{t+1}[0:n-2], H[n-1]) => (Pr[X_{t+1}[n-1]])
 #
 # Each `small network' is input->[tanh]->[softmax for Pr, sigmoid for H]->output
-# and n_hidden = [2/3 * (n_in + n_out)]
+# and n_hidden = [2/3 * (n_in + n_out)] # or max(2/3 * n_in, n_out)?
 
 # Training
 # 1. Target: maximizing ESJD
@@ -33,6 +33,7 @@ import theano.tensor as T
 # 4. Normalized with {l1_reg} * L1 and {l2_leg} * L2 norms
 
 # Implemented with Theano
+# A toy example of how the model works is in ../examples/amcmc_nn_esjd_test.py
 
 class AMCMC_NN_ESJD(MCMC):
     def __init__(self, problem, \
