@@ -91,7 +91,8 @@ class CPT:
         s = ''
         if not self.final:
             s += 'WARNING: {name} is not final'.format(name = self.name)
-        # for parent_dict,
+        # TODO
+        return s
 
     def clear_cache(self):
         self.blanket_cache = {}

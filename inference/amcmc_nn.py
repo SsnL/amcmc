@@ -77,7 +77,7 @@ training batch size: {batch_size}'''.format( \
             r -= v
             if r <= 0:
                 return i, k, log(v) - log(total)
-        raise Exception("Unreached")
+        return i, k, 0.0
 
     # Sampled tuple, log probability that it is sampled
     def sample_nn(self):

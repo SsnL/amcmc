@@ -17,7 +17,7 @@ class PerfectProposal(MCMC):
             r -= v
             if r <= 0:
                 return k
-        raise Exception("Unreached")
+        return k
 
     def init_particle(self):
         return self.perfect_sample()

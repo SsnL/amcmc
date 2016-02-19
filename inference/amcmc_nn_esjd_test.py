@@ -2,6 +2,8 @@ import numpy as np
 import theano
 import theano.tensor as T
 
+# TODO
+
 # A small test of achieveability for AMCMC_NN_ESJD
 # Model copied from amcmc_nn_esjd.py as below:
 
