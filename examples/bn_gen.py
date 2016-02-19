@@ -1,8 +1,9 @@
-from mcmc import *
+from amcmc.structure import *
+from amcmc.inference import *
+import numpy as np
 from itertools import product
 from fn import F
 
-random.seed(14361436)
 np.random.seed(14361436)
 
 # Union-Find of Hashables

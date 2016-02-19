@@ -1,9 +1,10 @@
-from mcmc import *
+from amcmc.structure import *
+from amcmc.inference import *
+import numpy as np
 from itertools import product
 
-raise Exception('Outdated')
+raise Exception('Broken')
 
-random.seed(14361436)
 np.random.seed(14361436)
 
 vals = tuple(x for x in xrange(10))

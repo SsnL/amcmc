@@ -1,6 +1,7 @@
-from mcmc import *
+from amcmc.structure import *
+from amcmc.inference import *
+import numpy as np
 
-random.seed(14361436)
 np.random.seed(14361436)
 
 T, F = True, False
