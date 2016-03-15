@@ -34,12 +34,12 @@ bn.finalize()
 
 p = Problem(bn, {"j": F, "g": T}, ["b"])
 
-s = AMCMC_NN(p, verbose_int = 20, N = 200, T = 100, record_start = 5, \
-    train_int = 4, train_steps = 20, train_batch_size = 10, \
-    train_lambda_fn = lambda t: 1 / (10 + t ** 2),
-    train_alpha_fn = lambda t: 20.0 / (20 + t),
-    explore_ratio_fn = lambda t: 0.0)
-print s.infer()
+# s = AMCMC_NN(p, verbose_int = 20, N = 200, T = 100, record_start = 5, \
+#     train_int = 4, train_steps = 20, train_batch_size = 10, \
+#     train_lambda_fn = lambda t: 1 / (10 + t ** 2),
+#     train_alpha_fn = lambda t: 20.0 / (20 + t),
+#     explore_ratio_fn = lambda t: 0.0)
+# print s.infer()
 
 # s = AMCMC_BN(p, verbose_int = 20, N = 200, T = 200, record_start = 20)
 # print s.infer()
@@ -53,12 +53,17 @@ print s.infer()
 # s = BinaryBNOneVarMaxESJD(p, verbose_int = 100, N = 200, T = 1000, record_start = 200)
 # print s.infer()
 
-s = GibbsAll(p, verbose_int = 100, N = 200, T = 100, record_start = 5)
+s = AMCMC_NN_ESJD(p, verbose_int = 50, N = 200, T = 200, record_start = 5,
+    train_int = 20, train_steps = 1000, train_batch_size = 5,
+    train_alpha_fn = lambda t, it: 10. / (10 + 0.1 * t + 0.02 * it))
+print s.infer()
+
+s = GibbsAll(p, verbose_int = 50, N = 200, T = 200, record_start = 5)
 print s.infer()
 
 # s = BinaryBNOneVarMaxESJDAll(p, verbose_int = 100, N = 200, T = 1000, record_start = 200)
 # print s.infer()
 
-s = PerfectProposal(p, verbose_int = 100, N = 200, T = 100, record_start = 5)
+s = PerfectProposal(p, verbose_int = 50, N = 200, T = 200, record_start = 5)
 print s.infer()
 

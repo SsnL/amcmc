@@ -65,7 +65,7 @@ training batch size: {batch_size}'''.format( \
         return p[0]
 
     def init_particle(self):
-        t = tuple(random.choice(self.problem.net[rv].values) for rv in self.problem.rvs)
+        t = tuple(np.random.choice(self.problem.net[rv].values) for rv in self.problem.rvs)
         return t, self.nn_log_prob_tuple(t)
 
     # Sample RV according to PMF.
@@ -192,7 +192,7 @@ training batch size: {batch_size}'''.format( \
             return ''
         evidence_str = self.get_evidence_readable()
         result = ''
-        true_posterior = self.calc_exact_posterior()
+        true_posterior = self.problem.calc_exact_posterior()
         rv = self.problem.rvs[0]
         cpt = {}
         nn_inputs = {}

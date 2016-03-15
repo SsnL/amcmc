@@ -9,8 +9,8 @@ class ParentProposal(MCMC):
         return p[0]
 
     def init_particle(self):
-        t = tuple(random.choice(self.problem.net[rv].values) for rv in self.problem.rvs)
-        return t, self.problem.net.log(self.tuple_to_dict(t))
+        t = tuple(np.random.choice(self.problem.net[rv].values) for rv in self.problem.rvs)
+        return t, self.log_prob_tuple(t)
 
     def update_particle(self, particle):
         net = self.problem.net

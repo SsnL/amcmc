@@ -178,6 +178,9 @@ class BayesNet:
         for rv in self.rvs.values():
             rv.clear_cache()
 
+    def __len__(self):
+        return len(self.rvs)
+
     @property
     def final(self):
         return self._final

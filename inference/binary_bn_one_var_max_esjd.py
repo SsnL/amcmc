@@ -20,16 +20,21 @@ class BinaryBNOneVarMaxESJD(MCMC):
         for rv in self.problem.net.rvs:
             assert set(self.problem.net[rv].values) == self.node_values
         print 'Passed check'
+        self.count = 0
 
     def init_particle(self):
-        return tuple((random.choice(self.problem.net[rv].values) for rv in self.problem.rvs))
+        return tuple((np.random.choice(self.problem.net[rv].values) for rv in self.problem.rvs))
+
+    def update_iteration(self, it):
+        if it > 0 and it % self.verbose_int == 0:
+            print 'empirical sjd', self.count / float(self.verbose_int * self.N)
+            self.count = 0
 
     # Return (cur_val -> change_prob)
     def get_prop_distn_for_rv_blanket(self, rv, d):
         blanket_t = self.problem.net[rv].dict_to_blanket_tuple(d)
         cache_key = (rv, blanket_t)
         if cache_key not in self.propose_cache:
-            d = d.copy()
             d[rv] = True
             log_p_T = self.log_prob_dict(d)
             d[rv] = False
@@ -46,5 +51,6 @@ class BinaryBNOneVarMaxESJD(MCMC):
         rv = self.problem.rvs[np.random.choice(len(self.problem.rvs))]
         prop_distn = self.get_prop_distn_for_rv_blanket(rv, d)
         if self.bernoulli(prop_distn[d[rv]]):
+            self.count += 1
             d[rv] = not d[rv]
         return self.dict_to_tuple(d)

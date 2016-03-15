@@ -9,7 +9,7 @@ class PerfectProposal(MCMC):
         return p
 
     def init(self):
-        self.perfect_proposal = self.calc_exact_posterior()
+        self.perfect_proposal = self.problem.calc_exact_posterior()
 
     def perfect_sample(self):
         r = np.random.uniform()

@@ -2,13 +2,13 @@ from scipy.stats import rv_discrete
 from functools import reduce
 from itertools import product
 from collections import defaultdict, deque, OrderedDict
+import matplotlib.pyplot as plt
 from ..utils import *
 
 class Problem:
     def __init__(self, net, evidence_dict, query_list):
         self.net = net
         # [query rvs ... hidden rvs]
-
         self.rvs = []
         non_query_rvs = []
         for rv in net.rvs:
@@ -22,13 +22,61 @@ class Problem:
         self.evidence = evidence_dict
         self.query = query_list
         self.query_ind = tuple((self.rvs.index(q) for q in self.query))
+        self._num_states = \
+            reduce(mul, map(lambda rv: len(self.net[rv]), self.rvs))
 
     def __str__(self):
         return ", ".join(self.query) + " given " + \
-            ", ".join(map(lambda p: "{0} = {1}".format(p[0], p[1]), self.evidence.items()))
+            ", ".join(map(lambda p: "{0} = {1}".format(*p), self.evidence.items()))
 
     def __repr__(self):
         return str(self)
+
+    ## Utility functions
+
+    def get_num_states(self):
+        return self._num_states
+
+    # Ensures that D.items() has same order
+    def ordered_comb_dict(self, rv_names):
+        # defaultdict isn't used since order ought to be the same
+        d = OrderedDict()
+        for comb in product(*map(lambda rv: self.net[rv].values, rv_names)):
+            d[comb] = 0
+        return d
+
+    @memoize_inst_meth
+    def _tuple_to_dict(self, t):
+        d = dict(zip(self.rvs, t))
+        for e in self.evidence:
+            d[e] = self.evidence[e]
+        return d
+
+    def tuple_to_dict(self, t):
+        return self._tuple_to_dict(t).copy()
+
+    @memoize_inst_meth
+    def tuple_to_query(self, t):
+        return tuple(t[i] for i in self.query_ind)
+
+    @memoize_inst_meth
+    def log_prob_tuple(self, t):
+        return self.net.log(self.tuple_to_dict(t))
+
+    @memoize_inst_meth
+    def calc_exact_posterior(self):
+        posterior = {}
+        for comb in product(*map(lambda rv: self.net[rv].values, self.rvs)):
+            posterior[comb] = exp(self.log_prob_tuple(comb))
+        return normalize(posterior)
+
+    @memoize_inst_meth
+    def calc_exact_query_posterior(self):
+        posterior = self.calc_exact_posterior()
+        query_posterior = self.ordered_comb_dict(self.query)
+        for t, prob in posterior.items():
+            query_posterior[self.tuple_to_query(t)] += prob
+        return query_posterior
 
     def prepare(self):
         self.net.problem = self
@@ -51,15 +99,8 @@ class MCMC:
 
     # Utils
 
-    @memoize_inst_meth
-    def _tuple_to_dict(self, t):
-        d = dict(zip(self.problem.rvs, t))
-        for e in self.problem.evidence:
-            d[e] = self.problem.evidence[e]
-        return d
-
     def tuple_to_dict(self, t):
-        return self._tuple_to_dict(t).copy()
+        return self.problem.tuple_to_dict(t)
 
     def dict_to_tuple(self, d):
         return tuple(d[rv] for rv in self.problem.rvs)
@@ -71,30 +112,22 @@ class MCMC:
     def init_particle(self):
         raise NotImplementedError
 
-    @memoize_inst_meth
     def tuple_to_query(self, t):
-        return tuple(t[i] for i in self.problem.query_ind)
+        return self.problem.tuple_to_query(t)
 
     @memoize_inst_meth
     def particle_to_query(self, particle):
         return self.tuple_to_query(self.particle_to_tuple(particle))
-
-    # Ensures that D.items() has same order
-    def ordered_comb_dict(self, rv_names):
-        # defaultdict isn't used since order ought to be the same
-        d = OrderedDict()
-        for comb in product( \
-            *map(lambda rv: self.problem.net[rv].values, rv_names) \
-        ):
-            d[comb] = 0
-        return d
 
     # Initialization
 
     # Init a wrapped particle
     def init_particle_wrapper(self):
         p = self.init_particle()
-        d = self.ordered_comb_dict(self.problem.rvs) if self.calc_eff else None
+        if self.calc_eff:
+            d = self.problem.ordered_comb_dict(self.problem.rvs)
+        else:
+            d = None
         self.record_particle(p, d = d)
         return p, d
 
@@ -108,18 +141,21 @@ class MCMC:
         self.calc_eff = calc_eff
         self.plot_lag = plot_lag
         if plot_lag != None:
-            import matplotlib.pyplot as plt
             # These are dict query -> counts
-            self.plot_deque = deque()
-            self.plot_deque.append(self.ordered_comb_dict(self.problem.query))
-            self.plot_summary = self.ordered_comb_dict(self.problem.query)
+            if plot_lag >= 0:
+                self.plot_deque = deque()
+                self.plot_deque.append( \
+                    self.problem.ordered_comb_dict(self.problem.query))
+            self.plot_summary = \
+                self.problem.ordered_comb_dict(self.problem.query)
             self.plot_data = [], []
-            self.plot_ref = np.array(self.calc_exact_query_posterior().values())
+            self.plot_ref = np.array( \
+                self.problem.calc_exact_query_posterior().values())
             plt.axes(xlim = (plot_lag, self.T), ylim = (0, 1))
             self.plot_line, = plt.plot(*self.plot_data)
             plt.ion()
             plt.show()
-        self.counts = self.ordered_comb_dict(self.problem.query)
+        self.counts = self.problem.ordered_comb_dict(self.problem.query)
         self.particles = [self.init_particle_wrapper() for _ in xrange(self.N)]
 
     def record_particle(self, p, t = None, q = None, d = None):
@@ -131,7 +167,8 @@ class MCMC:
             if self.t >= self.record_start:
                 self.counts[q] += 1
             if self.plot_lag != None:
-                self.plot_deque[-1][q] += 1
+                if self.plot_lag >= 0:
+                    self.plot_deque[-1][q] += 1
                 self.plot_summary[q] += 1
         if self.calc_eff:
             if t == None:
@@ -159,15 +196,16 @@ class MCMC:
         self.t += 1
         if self.t % self.verbose_int == 0:
             print "iteration", self.t
-        if self.plot_lag != None:
-            self.plot_deque.append(self.ordered_comb_dict(self.problem.query))
+        if self.plot_lag >= 0:
+            self.plot_deque.append( \
+                self.problem.ordered_comb_dict(self.problem.query))
         self.particles = map(self.update_particle_wrapper, self.particles)
         if self.plot_lag != None:
-            if len(self.plot_deque) > self.plot_lag:
+            if self.plot_lag >= 0 and len(self.plot_deque) > self.plot_lag:
                 out = self.plot_deque.popleft()
                 for q, n in out.items():
                     self.plot_summary[q] -= 1
-            if len(self.plot_deque) == self.plot_lag:
+            if self.plot_lag < 0 or len(self.plot_deque) == self.plot_lag:
                 diff = np.array(normalize(self.plot_summary).values()) - self.plot_ref
                 self.plot_data[0].append(self.t)
                 self.plot_data[1].append(diff.dot(diff))
@@ -204,7 +242,7 @@ class MCMC:
         if self.calc_eff:
             # The 2-D array to calculate the criteria, each row is the summary of a
             # particle.
-            s = np.zeros((self.N, reduce(mul, map(lambda rv: len(self.problem.net[rv].values), self.problem.rvs))))
+            s = np.zeros((self.N, self.problem.get_num_states()))
             # Assume D has the same order
             for i, (p, d) in enumerate(self.particles):
                 s[i] = np.array(normalize(d).values())
@@ -215,6 +253,7 @@ class MCMC:
         else:
             return "Result:\n{res}".format(res = readable_res)
 
+    # plot_lag = -1 means all
     def infer(self, calc_eff = True, plot_lag = None):
         self.problem.prepare()
         result = self._run(calc_eff, plot_lag)
@@ -223,37 +262,18 @@ class MCMC:
 
     ## MH utility functions
 
-    @memoize_inst_meth
     def log_prob_tuple(self, t):
-        return self.problem.net.log(self.tuple_to_dict(t))
+        return self.problem.log_prob_tuple(t)
 
     def log_prob_dict(self, d):
         return self.problem.net.log(d)
 
-    def mh_acc_log_prob(self, cur_tuple, tar_tuple, to_log_prob, back_log_prob):
-        log_a = self.bn_log_prob(tar_tuple) + back_log_prob - \
-            self.bn_log_prob(cur_tuple) - to_log_prob
+    def mh_acc_log_prob(self, cur_tuple, tar_tuple, log_to_prob, log_back_prob):
+        return self.log_prob_tuple(tar_tuple) + log_back_prob - \
+            self.log_prob_tuple(cur_tuple) - log_to_prob
 
     def bernoulli(self, p):
         return np.random.uniform() <= p
-
-    ## Other utility functions
-
-    @memoize_inst_meth
-    def calc_exact_posterior(self):
-        posterior = {}
-        for comb in product( \
-            *map(lambda rv: self.problem.net[rv].values, self.problem.rvs)):
-            posterior[comb] = exp(self.log_prob_tuple(comb))
-        return normalize(posterior)
-
-    @memoize_inst_meth
-    def calc_exact_query_posterior(self):
-        posterior = self.calc_exact_posterior()
-        query_posterior = self.ordered_comb_dict(self.problem.query)
-        for t, prob in posterior.items():
-            query_posterior[self.tuple_to_query(t)] += prob
-        return query_posterior
 
     ## Output functions
 
@@ -266,7 +286,7 @@ class MCMC:
         entries = []
         evidence_str = self.get_evidence_readable()
         query_rv_to_rvs_ind = {}
-        query_posterior = self.calc_exact_query_posterior()
+        query_posterior = self.problem.calc_exact_query_posterior()
         for rv in self.problem.query:
             query_rv_to_rvs_ind[rv] = self.problem.rvs.index(rv)
         for query, prob in result.items():

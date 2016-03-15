@@ -2,6 +2,9 @@ from amcmc.structure import *
 from amcmc.inference import *
 import numpy as np
 from itertools import product
+from operator import mul
+from collections import defaultdict
+from scipy.stats import rv_discrete
 from fn import F
 
 np.random.seed(14361436)
@@ -68,6 +71,7 @@ def gen_random_bn(n, p = 0.5, a = 2, b = 5, connected = False, values = int):
         for parent in parent_list:
             union(cc_lookup, i, parent)
         parent_lists.append(parent_list)
+    print 'graph structure generated'
     # build ccs
     ccs = defaultdict(set)
     for i in rvs:
@@ -85,10 +89,13 @@ def gen_random_bn(n, p = 0.5, a = 2, b = 5, connected = False, values = int):
             r_other = r_a if r_all == r_b else r_b
             ccs[r_all].update(ccs[r_other])
             ccs.pop(r_other)
+            print len(ccs)
+        print 'graph forced to be connected'
     # build BN
     bn = BayesNet()
     for i, name, size, parent_list in \
         zip(rvs, names, rv_sizes, parent_lists):
+        print 'process rv', i
         parent_names = map(names.__getitem__, parent_list)
         cpt = CPT(bn, name, parent_names, range(size))
         num_entries = reduce(mul, map(rv_sizes.__getitem__, parent_list), 1)
@@ -102,6 +109,7 @@ def gen_random_bn(n, p = 0.5, a = 2, b = 5, connected = False, values = int):
             distn_dict = {v: prob for v, prob in zip(values, distn)}
             cpt.add_entry(parent_dict, distn_dict)
     bn.finalize()
+    print 'probabilities added'
     return bn, map(lambda cc: map(names.__getitem__, cc), ccs.values())
 
 # Randomly generate an inference problem for the given BN.
@@ -134,7 +142,8 @@ gen_random_problem.E = 0
 gen_random_problem.H = 1
 gen_random_problem.Q = 2
 
-bn, ccs = gen_random_bn(12, a = 2, b = 2, values = (False, True), connected = True)
+# bn, ccs = gen_random_bn(22, a = 2, b = 2, values = (False, True), connected = True)
+bn, ccs = gen_random_bn(14, a = 3, b = 4, connected = True)
 
 p = gen_random_problem(bn, rv_type_distn = [0.3, 0.45, 0.25])
 print p
@@ -145,17 +154,22 @@ print p
 # s = BinaryBNOneVarMaxESJD(p, verbose_int = 100, N = 200, T = 1000, record_start = 200)
 # print s.infer()
 
-s = AMCMC_NN(p, verbose_int = 100, N = 200, T = 1000, record_start = 200, \
-    train_int =20, train_steps = 100, train_batch_size = 10, \
-    train_alpha_fn = lambda t: 60.0 / (60 + t), \
-    explore_ratio_fn = lambda t: 80.0 / (80 + t))
-print s.infer(plot_lag = 10)
+# s = AMCMC_NN(p, verbose_int = 100, N = 200, T = 1000, record_start = 200, \
+#     train_int =20, train_steps = 100, train_batch_size = 10, \
+#     train_alpha_fn = lambda t: 60.0 / (60 + t), \
+#     explore_ratio_fn = lambda t: 80.0 / (80 + t))
+# print s.infer(plot_lag = 10)
 
-s = GibbsAll(p, verbose_int = 100, N = 200, T = 1000, record_start = 200)
-print s.infer(plot_lag = 10)
+s = GibbsAll(p, verbose_int = 50, N = 200, T = 500, record_start = 10)
+print s.infer(plot_lag = 20)
 
-# s = BinaryBNOneVarMaxESJDAll(p, verbose_int = 100, N = 200, T = 1000, record_start = 200)
-# print s.infer()
+s = AMCMC_NN_ESJD(p, verbose_int = 50, N = 200, T = 500, record_start = 10,
+    train_int = 10, train_steps = 1000, train_batch_size = 5,
+    train_alpha_fn = lambda t, it: 10. / (10 + 0.15 * t + 0.02 * it))
+print s.infer(plot_lag = 20)
+
+# s = BinaryBNOneVarMaxESJDAll(p, verbose_int = 100, N = 200, T = 200, record_start = 20)
+# print s.infer(plot_lag = -1)
 
 # s = PerfectProposal(p, verbose_int = 100, N = 200, T = 1000, record_start = 200)
 # print s.infer()
