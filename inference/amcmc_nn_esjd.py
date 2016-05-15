@@ -43,13 +43,15 @@ class AMCMC_NN_ESJD(MCMC):
     def __init__(self, problem, \
             verbose_int = 100, N = 1000, T = 10000, record_start = 3000, \
             train_int = 100, train_steps = 1000, train_batch_size = 5, \
-            train_alpha_fn = lambda t: 600.0 / (600 + t)):
+            train_alpha_fn = lambda t: 600.0 / (600 + t), train_stop_it = None):
         MCMC.__init__(self, \
             problem, "AMCMC_NN_ESJD", verbose_int, N, T, record_start)
         self.train_steps = train_steps
         self.train_int = train_int
         self.train_batch_size = train_batch_size
         self.train_alpha_fn = train_alpha_fn
+        self.train_stop_it = \
+            train_stop_it if train_stop_it != None else int(2 * T / 3.)
 
     def additional_args_str(self):
         return '''training interval: every {interval} iteration(s)
@@ -185,7 +187,7 @@ training batch size: {batch_size}'''.format( \
         log_target = T.log(target)
         self.log_target = theano.function(
             [mx, mprop, bn_log_px, bn_log_pprop, sjd, is_denom],
-            [log_target]
+            [target]
         )
         flat_weights = list(chain(*weights))
         g_weights = [T.grad(log_target, w) for w in flat_weights]
@@ -231,24 +233,9 @@ training batch size: {batch_size}'''.format( \
         for _ in xrange(T):
             ps_new = map(lambda p: self.update_particle(p, False), ps)
             for old, new in zip(ps, ps_new):
-                s += (new[0] != old[0]).sum()
+                s += ((new[0] != old[0]).sum()) ** 2
             ps = ps_new
         return s / float(n * T)
-
-    # def static_train(self, n, b, alpha_fn):
-    #     for it in xrange(n):
-    #         alpha = alpha_fn(it)
-    #         mx, proposals, esjds = self.gen_static_train_data(b)
-    #         n = mx.shape[0]
-    #         batch_size = self.train_batch_size
-    #         print 'iteration', it, 'alpha', alpha,
-    #         print 'pretraining', self.log_target(mx, proposals, esjds)[0],
-    #         alpha = self.train_alpha_fn(it)
-    #         self.update(mx, proposals, esjds, alpha)
-    #         print 'posttraining', self.log_target(mx, proposals, esjds)[0],
-    #         print 'estimated esjd', self.estimate_esjd(30, 30)
-    #         self.data = [], [], []
-    #     print 'training done'
 
     def init(self):
         self.init_model()
@@ -275,17 +262,17 @@ training batch size: {batch_size}'''.format( \
         return array, self.log_prob_array(array)
 
     def update_iteration(self, it):
-        if it > 0 and it % self.train_int == 0 and self.problem.rvs:
+        if it > 0 and it % self.train_int == 0 and self.problem.rvs and it <= self.train_stop_it:
             mx, mprop, bn_log_px, bn_log_pprop, sjd, is_denom = \
                 map(np.array, self.data)
-            print 'esjd', self.estimate_esjd(50, 50)
+            print 'esjd', self.estimate_esjd(50, 50),
             print 'train_steps', self.train_steps
-            print 'pretraining', self.log_target(mx, mprop, bn_log_px, bn_log_pprop, sjd, is_denom)[0],
+            print 'pre', self.log_target(mx, mprop, bn_log_px, bn_log_pprop, sjd, is_denom)[0]
             for train_it in xrange(self.train_steps):
                 alpha = self.train_alpha_fn(it, train_it)
                 # for batch_ind in xrange(n_batch):
                 self.update(mx, mprop, bn_log_px, bn_log_pprop, sjd, is_denom, alpha)
-            print 'posttraining', self.log_target(mx, mprop, bn_log_px, bn_log_pprop, sjd, is_denom)[0],
+            print '\t', 'post', self.log_target(mx, mprop, bn_log_px, bn_log_pprop, sjd, is_denom)[0],
             print 'esjd', self.estimate_esjd(50, 50)
             self.data = [], [], [], [], [], []
             print 'training done'
@@ -301,7 +288,7 @@ training batch size: {batch_size}'''.format( \
         a = exp(log_prob_proposal + log_back_prob - log_prob_x - log_to_prob)
         if record_train_data:
             # add training data
-            sjd = (array != proposal).sum()
+            sjd = ((array != proposal).sum()) ** 2
             self.data[0].append(array)
             self.data[1].append(proposal)
             self.data[2].append(log_prob_x)

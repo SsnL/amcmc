@@ -49,15 +49,16 @@ p = Problem(bn, {"j": T, "m": T}, ["b"])
 # s = BinaryBNOneVarMaxESJD(p, verbose_int = 20, N = 200, T = 500, record_start = 10)
 # print s.infer(False)
 
-s = AMCMC_NN_ESJD(p, verbose_int = 20, N = 200, T = 500, record_start = 10,
-    train_int = 10, train_steps = 1000, train_batch_size = 5,
-    train_alpha_fn = lambda t, it: 10. / (10 + 0.15 * t + 0.02 * it))
+s = AMCMC_NN_ESJD(p, verbose_int = 20, N = 200, T = 860, record_start = 270,
+    train_int = 20, train_steps = 1000, train_batch_size = 5,
+    train_alpha_fn = lambda t, it: 10. / (-30 + 2 * t + 0.05 * it),
+    train_stop_it = 260)
 print s.infer()
 
-s = GibbsAll(p, verbose_int = 20, N = 200, T = 500, record_start = 10)
+s = GibbsAll(p, verbose_int = 20, N = 200, T = 600, record_start = 10)
 print s.infer()
 
-s = BinaryBNOneVarMaxESJDAll(p, verbose_int = 20, N = 200, T = 500, record_start = 10)
+s = BinaryBNOneVarMaxESJDAll(p, verbose_int = 20, N = 200, T = 600, record_start = 10)
 print s.infer()
 
 # s = PerfectProposal(p, verbose_int = 20, N = 200, T = 10, record_start = 5)

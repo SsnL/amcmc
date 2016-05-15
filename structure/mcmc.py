@@ -166,14 +166,14 @@ class MCMC:
                 q = self.tuple_to_query(t)
             if self.t >= self.record_start:
                 self.counts[q] += 1
+                if self.calc_eff:
+                    if t == None:
+                        t = self.particle_to_tuple(p)
+                    d[t] += 1
             if self.plot_lag != None:
                 if self.plot_lag >= 0:
                     self.plot_deque[-1][q] += 1
                 self.plot_summary[q] += 1
-        if self.calc_eff:
-            if t == None:
-                t = self.particle_to_tuple(p)
-            d[t] += 1
         return p
 
     # Update
